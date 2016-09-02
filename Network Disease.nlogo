@@ -1,5 +1,12 @@
 extensions [ nw cf ]
 
+globals [
+  de-susceptible
+  de-exposed
+  de-infected
+  de-removed
+]
+
 turtles-own [
   state
   next-state
@@ -7,6 +14,12 @@ turtles-own [
 
 to setup
   ca
+  if run-abm [ setup-abm ]
+  if run-de [ setup-de ]
+  reset-ticks
+end
+
+to setup-abm
   set-default-shape turtles "person"
   nw:generate-watts-strogatz turtles links population neighborhood-size rewire-probability [
     fd max-pxcor - 1
@@ -17,11 +30,20 @@ to setup
     set next-state "I"
     update-state
   ]
-  reset-ticks
+end
+
+to setup-de
+  set de-susceptible population - initial-infected
+  set de-infected initial-infected
 end
 
 to go
-  if all? turtles [ state = "R" ] [ stop ]
+  if run-abm [ go-abm ]
+  if run-de [ go-de ]
+  tick
+end
+
+to go-abm
   ask turtles [
     cf:match state
     cf:case-is = "E" [
@@ -41,7 +63,21 @@ to go
   ask turtles [
     update-state
   ]
-  tick
+end
+
+to go-de
+  let inv-dt 100000
+  let dt 1 / inv-dt
+  repeat inv-dt [
+    let new-exposures (exposed-inf-rate * de-exposed + infected-inf-rate * de-infected) * contact-rate * (de-susceptible / population) * dt
+    let new-infected de-exposed * emergence-rate * dt
+    let new-removed de-infected * removal-rate * dt
+
+    set de-susceptible de-susceptible - new-exposures
+    set de-exposed de-exposed + new-exposures - new-infected
+    set de-infected de-infected + new-infected - new-removed
+    set de-removed de-removed + new-removed
+  ]
 end
 
 to try-infect [ cont-rate inf-rate ]
@@ -66,13 +102,13 @@ to update-state
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-451
+750
 10
-888
-448
+1262
+523
 -1
 -1
-13.0
+15.3
 1
 10
 1
@@ -101,7 +137,7 @@ population
 population
 0
 1000
-100.0
+1000.0
 1
 1
 NIL
@@ -116,7 +152,7 @@ neighborhood-size
 neighborhood-size
 0
 ceiling (population / 2) - 1
-5.0
+499.0
 1
 1
 NIL
@@ -131,17 +167,17 @@ rewire-probability
 rewire-probability
 0
 1
-0.05
+0.0
 0.01
 1
 NIL
 HORIZONTAL
 
 BUTTON
-20
-186
-86
-219
+30
+256
+96
+289
 NIL
 setup
 NIL
@@ -155,10 +191,10 @@ NIL
 1
 
 BUTTON
-97
-185
-160
-218
+107
+255
+170
+288
 NIL
 go
 T
@@ -172,10 +208,10 @@ NIL
 1
 
 SLIDER
-14
-225
-186
-258
+24
+295
+196
+328
 contact-rate
 contact-rate
 0
@@ -187,25 +223,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-14
-273
-187
-306
+24
+343
+197
+376
 exposed-inf-rate
 exposed-inf-rate
 0
 1
-0.75
+0.2
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-12
-377
-184
-410
+22
+447
+194
+480
 emergence-rate
 emergence-rate
 0
@@ -217,10 +253,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-16
-419
-188
-452
+26
+489
+198
+522
 removal-rate
 removal-rate
 0
@@ -232,15 +268,15 @@ NIL
 HORIZONTAL
 
 SLIDER
-14
-313
-186
-346
+24
+383
+196
+416
 infected-inf-rate
 infected-inf-rate
 0
 1
-0.5
+0.1
 0.01
 1
 NIL
@@ -262,10 +298,10 @@ NIL
 HORIZONTAL
 
 PLOT
-213
-29
-449
-266
+202
+10
+744
+522
 Populations
 NIL
 NIL
@@ -281,6 +317,32 @@ PENS
 "pen-1" 1.0 0 -1184463 true "" "plot count turtles with [ state = \"E\" ]"
 "pen-2" 1.0 0 -2674135 true "" "plot count turtles with [ state = \"I\" ]"
 "pen-3" 1.0 0 -7500403 true "" "plot count turtles with [ state = \"R\" ]"
+"pen-4" 1.0 0 -5516827 true "" "plot de-susceptible"
+"pen-5" 1.0 0 -526419 true "" "plot de-exposed"
+"pen-6" 1.0 0 -1069655 true "" "plot de-infected"
+"pen-7" 1.0 0 -3026479 true "" "plot de-removed"
+
+SWITCH
+42
+181
+154
+214
+run-abm
+run-abm
+0
+1
+-1000
+
+SWITCH
+42
+219
+145
+252
+run-de
+run-de
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
