@@ -21,8 +21,8 @@ end
 
 to setup-abm
   set-default-shape turtles "person"
-  nw:generate-watts-strogatz turtles links population neighborhood-size rewire-probability [
-    fd max-pxcor - 1
+  run generate-network
+  ask turtles [
     set next-state "S"
     update-state
   ]
@@ -38,22 +38,24 @@ to setup-de
 end
 
 to go
-  if run-abm [ go-abm ]
-  if run-de [ go-de ]
-  tick
+  if (any? turtles with [ state = "E" or state = "I" ]) or de-exposed > 0.01 or de-infected > 0.01 [
+    if run-abm [ go-abm ]
+    if run-de [ go-de ]
+    tick
+  ]
 end
 
 to go-abm
   ask turtles [
     cf:match state
     cf:case-is = "E" [
-      try-infect contact-rate exposed-inf-rate
+      try-infect exposed-contact-rate exposed-inf-rate
       if random-float 1.0 < emergence-rate [
         set next-state "I"
       ]
     ]
     cf:case-is = "I" [
-      try-infect contact-rate infected-inf-rate
+      try-infect infected-contact-rate infected-inf-rate
       if random-float 1.0 < removal-rate [
         set next-state "R"
       ]
@@ -66,10 +68,10 @@ to go-abm
 end
 
 to go-de
-  let inv-dt 100000
+  let inv-dt 10000
   let dt 1 / inv-dt
   repeat inv-dt [
-    let new-exposures (exposed-inf-rate * de-exposed + infected-inf-rate * de-infected) * contact-rate * (de-susceptible / population) * dt
+    let new-exposures (exposed-contact-rate * exposed-inf-rate * de-exposed + infected-contact-rate * infected-inf-rate * de-infected) * (de-susceptible / population) * dt
     let new-infected de-exposed * emergence-rate * dt
     let new-removed de-infected * removal-rate * dt
 
@@ -100,12 +102,36 @@ to update-state
   cf:case-is = "I" [ red ]
   cf:else [ grey ]
 end
+
+to-report emergence-rate
+  report 1 / avg-incubation
+end
+
+to-report removal-rate
+  report 1 / avg-illness-duration
+end
+
+to-report exposed
+  report turtles with [ state = "E" ]
+end
+
+to-report infected
+  report turtles with [ state = "I" ]
+end
+
+to-report susceptible
+  report turtles with [ state = "S" ]
+end
+
+to-report removed
+  report turtles with [ state = "R" ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 750
-10
+75
 1262
-523
+588
 -1
 -1
 15.3
@@ -129,55 +155,40 @@ ticks
 30.0
 
 SLIDER
-10
-15
-182
-48
+5
+85
+200
+118
 population
 population
 0
 1000
-1000.0
+200.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-12
-56
-185
-89
-neighborhood-size
-neighborhood-size
+5
+120
+200
+153
+half-degree
+half-degree
 0
 ceiling (population / 2) - 1
-499.0
+5.0
 1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-10
-98
-182
-131
-rewire-probability
-rewire-probability
-0
-1
-0.0
-0.01
 1
 NIL
 HORIZONTAL
 
 BUTTON
-30
-256
-96
-289
+15
+225
+81
+258
 NIL
 setup
 NIL
@@ -191,10 +202,10 @@ NIL
 1
 
 BUTTON
-107
-255
-170
-288
+120
+225
+183
+258
 NIL
 go
 T
@@ -208,85 +219,85 @@ NIL
 1
 
 SLIDER
-24
-295
-196
-328
-contact-rate
-contact-rate
+5
+260
+200
+293
+exposed-contact-rate
+exposed-contact-rate
 0
 20
-5.0
+4.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-24
-343
-197
-376
+5
+375
+200
+408
 exposed-inf-rate
 exposed-inf-rate
 0
 1
-0.2
+0.05
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-22
-447
-194
-480
-emergence-rate
-emergence-rate
+5
+420
+200
+453
+avg-incubation
+avg-incubation
 0
+100
+15.0
 1
-0.1
-0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-26
-489
-198
-522
-removal-rate
-removal-rate
+5
+455
+200
+488
+avg-illness-duration
+avg-illness-duration
 0
+100
+15.0
 1
-0.1
-0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-24
-383
-196
-416
+5
+340
+200
+373
 infected-inf-rate
 infected-inf-rate
 0
 1
-0.1
+0.06
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-11
-139
-183
-172
+5
+155
+200
+188
 initial-infected
 initial-infected
 0
@@ -298,10 +309,10 @@ NIL
 HORIZONTAL
 
 PLOT
-202
-10
-744
-522
+210
+75
+752
+587
 Populations
 NIL
 NIL
@@ -323,10 +334,10 @@ PENS
 "pen-7" 1.0 0 -3026479 true "" "plot de-removed"
 
 SWITCH
-42
-181
-154
-214
+5
+190
+110
+223
 run-abm
 run-abm
 0
@@ -334,15 +345,41 @@ run-abm
 -1000
 
 SWITCH
-42
-219
-145
-252
+110
+190
+200
+223
 run-de
 run-de
 0
 1
 -1000
+
+INPUTBOX
+5
+10
+1265
+70
+generate-network
+nw:generate-watts-strogatz turtles links population half-degree 0.05 [ fd max-pxcor - 1 ]
+1
+0
+String (commands)
+
+SLIDER
+5
+295
+200
+328
+infected-contact-rate
+infected-contact-rate
+0
+10
+1.25
+0.25
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -704,5 +741,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@
