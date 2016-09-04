@@ -1,144 +1,81 @@
-extensions [ nw cf ]
-
-globals [
-  de-susceptible
-  de-exposed
-  de-infected
-  de-removed
-]
+extensions [ ls ]
 
 turtles-own [
-  state
-  next-state
+  model
+  new-exposed
 ]
 
 to setup
+  ls:reset
   ca
-  if run-abm [ setup-abm ]
-  if run-de [ setup-de ]
+  set-default-shape turtles "circle"
+  crt 1 [ setxy 10 0 ]
+  crt 1 [ setxy -10 0 ]
+  ask turtles [
+    create-links-with other turtles
+    ifelse behaviorspace-experiment-name = "" [
+      (ls:create-interactive-models 1 "Network Disease.nlogo" [ [id] -> set model id ])
+    ] [
+      (ls:create-models 1 "Network Disease.nlogo" [ [id] -> set model id ])
+    ]
+    ls:set-name model (word self)
+  ]
+  ask turtle 0 [
+    ls:let rewire rewire-prob-city-1
+    ls:ask model [
+      set generate-network (word "nw:generate-watts-strogatz turtles links population half-degree " rewire " [ fd max-pxcor - 1 ]")
+      set initial-infected 2
+      setup
+    ]
+  ]
+  ask turtle 1 [
+    ls:let rewire rewire-prob-city-2
+    ls:ask model [
+      set generate-network (word "nw:generate-watts-strogatz turtles links population half-degree " rewire " [ fd max-pxcor - 1 ]")
+      set initial-infected 0
+      setup
+    ]
+  ]
   reset-ticks
 end
 
-to setup-abm
-  set-default-shape turtles "person"
-  run generate-network
-  ask turtles [
-    set next-state "S"
-    update-state
-  ]
-  ask n-of initial-infected turtles [
-    set next-state "I"
-    update-state
-  ]
-end
-
-to setup-de
-  set de-susceptible population - initial-infected
-  set de-infected initial-infected
-end
-
 to go
-  if run-abm [ go-abm ]
-  if run-de [ go-de ]
-  tick
-end
-
-to go-abm
-  if color-links? [
-    ask links [ set color grey ]
+  ask turtles [
+    set new-exposed random-poisson [ intercity-exposure-rate ] of one-of other turtles
   ]
   ask turtles [
-    cf:match state
-    cf:case-is = "E" [
-      try-infect exposed-contact-rate exposed-inf-rate
-      if random-float 1.0 < emergence-rate [
-        set next-state "I"
-      ]
-    ]
-    cf:case-is = "I" [
-      try-infect infected-contact-rate infected-inf-rate
-      if random-float 1.0 < removal-rate [
-        set next-state "R"
-      ]
-    ]
-    cf:else []
-  ]
-  ask turtles [
-    update-state
-  ]
-end
-
-to go-de
-  let inv-dt 10000
-  let dt 1 / inv-dt
-  repeat inv-dt [
-    let new-exposures (exposed-contact-rate * exposed-inf-rate * de-exposed + infected-contact-rate * infected-inf-rate * de-infected) * (de-susceptible / population) * dt
-    let new-infected de-exposed * emergence-rate * dt
-    let new-removed de-infected * removal-rate * dt
-
-    set de-susceptible de-susceptible - new-exposures
-    set de-exposed de-exposed + new-exposures - new-infected
-    set de-infected de-infected + new-infected - new-removed
-    set de-removed de-removed + new-removed
-  ]
-end
-
-to try-infect [ cont-rate inf-rate ]
-  repeat random-poisson cont-rate [
-    if random-float 1.0 < inf-rate [
-      ask one-of link-neighbors [
-        if state = "S" [
-          set next-state "E"
-          if color-links? [
-            ask link-with myself [ set color [ color ] of other-end ]
-          ]
+    ls:let ne new-exposed
+    ls:ask model [
+      repeat ne [
+        ask one-of turtles [
+          if state = "S" [ set next-state "E" update-state ]
         ]
       ]
     ]
+    recolor
   ]
+  ls:ask ls:models [ go ]
+  tick
 end
 
-to update-state
-  set state next-state
-  set color state cf:matching
-  cf:case-is = "S" [ blue ]
-  cf:case-is = "E" [ yellow ]
-  cf:case-is = "I" [ red ]
-  cf:else [ grey ]
+to recolor
+  set color blue
 end
 
-to-report emergence-rate
-  report 1 / avg-incubation
-end
-
-to-report removal-rate
-  report 1 / avg-illness-duration
-end
-
-to-report exposed
-  report turtles with [ state = "E" ]
-end
-
-to-report infected
-  report turtles with [ state = "I" ]
-end
-
-to-report susceptible
-  report turtles with [ state = "S" ]
-end
-
-to-report removed
-  report turtles with [ state = "R" ]
+to-report intercity-exposure-rate
+  report intercity-contact-scalar *
+    [ count exposed * exposed-contact-rate * exposed-inf-rate +
+      count infected * infected-contact-rate * infected-inf-rate ] ls:of model
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-750
-75
-1262
-588
+210
+10
+647
+448
 -1
 -1
-15.3
+13.0
 1
 10
 1
@@ -160,39 +97,24 @@ ticks
 
 SLIDER
 5
-85
-200
-118
-population
-population
+140
+206
+173
+intercity-contact-scalar
+intercity-contact-scalar
 0
-1000
-200.0
 1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-120
-200
-153
-half-degree
-half-degree
-0
-ceiling (population / 2) - 1
-5.0
-1
+0.1
+0.01
 1
 NIL
 HORIZONTAL
 
 BUTTON
-15
-225
-81
-258
+10
+90
+72
+123
 NIL
 setup
 NIL
@@ -206,10 +128,10 @@ NIL
 1
 
 BUTTON
-120
-225
-183
-258
+80
+90
+143
+123
 NIL
 go
 T
@@ -224,29 +146,14 @@ NIL
 
 SLIDER
 5
-260
-200
-293
-exposed-contact-rate
-exposed-contact-rate
-0
-20
-4.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-375
-200
-408
-exposed-inf-rate
-exposed-inf-rate
+45
+205
+78
+rewire-prob-city-2
+rewire-prob-city-2
 0
 1
-0.05
+0.0
 0.01
 1
 NIL
@@ -254,147 +161,18 @@ HORIZONTAL
 
 SLIDER
 5
-420
-200
-453
-avg-incubation
-avg-incubation
-0
-100
-15.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-455
-200
-488
-avg-illness-duration
-avg-illness-duration
-0
-100
-15.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-340
-200
-373
-infected-inf-rate
-infected-inf-rate
+10
+205
+43
+rewire-prob-city-1
+rewire-prob-city-1
 0
 1
-0.06
+0.0
 0.01
 1
 NIL
 HORIZONTAL
-
-SLIDER
-5
-155
-200
-188
-initial-infected
-initial-infected
-0
-population
-2.0
-1
-1
-NIL
-HORIZONTAL
-
-PLOT
-210
-75
-752
-587
-Populations
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -13345367 true "" "plot count turtles with [ state = \"S\" ]"
-"pen-1" 1.0 0 -1184463 true "" "plot count turtles with [ state = \"E\" ]"
-"pen-2" 1.0 0 -2674135 true "" "plot count turtles with [ state = \"I\" ]"
-"pen-3" 1.0 0 -7500403 true "" "plot count turtles with [ state = \"R\" ]"
-"pen-4" 1.0 0 -5516827 true "" "plot de-susceptible"
-"pen-5" 1.0 0 -526419 true "" "plot de-exposed"
-"pen-6" 1.0 0 -1069655 true "" "plot de-infected"
-"pen-7" 1.0 0 -3026479 true "" "plot de-removed"
-
-SWITCH
-5
-190
-110
-223
-run-abm
-run-abm
-0
-1
--1000
-
-SWITCH
-110
-190
-200
-223
-run-de
-run-de
-1
-1
--1000
-
-INPUTBOX
-5
-10
-1265
-70
-generate-network
-nw:generate-watts-strogatz turtles links population half-degree 0.05 [ fd max-pxcor - 1 ]
-1
-0
-String (commands)
-
-SLIDER
-5
-295
-200
-328
-infected-contact-rate
-infected-contact-rate
-0
-10
-1.25
-0.25
-1
-NIL
-HORIZONTAL
-
-SWITCH
-40
-505
-167
-538
-color-links?
-color-links?
-1
-1
--1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -744,50 +522,20 @@ need-to-manually-make-preview-for-this-model
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="rahmandad" repetitions="1000" runMetricsEveryStep="true">
+  <experiment name="experiment" repetitions="1000" runMetricsEveryStep="true">
     <setup>setup</setup>
     <go>go</go>
-    <exitCondition>not (any? exposed or any? infected)</exitCondition>
-    <metric>count susceptible</metric>
-    <metric>count exposed</metric>
-    <metric>count infected</metric>
-    <metric>count removed</metric>
-    <enumeratedValueSet variable="initial-infected">
-      <value value="1"/>
+    <exitCondition>reduce and [not (any? exposed or any? infected) ls:of ls:models</exitCondition>
+    <metric>[[count infected] ls:of model] of turtle 0</metric>
+    <metric>[[count infected] ls:of model] of turtle 1</metric>
+    <enumeratedValueSet variable="intercity-contact-scalar">
+      <value value="0.1"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="infected-inf-rate">
-      <value value="0.06"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="infected-contact-rate">
-      <value value="1.25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="avg-incubation">
-      <value value="15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="exposed-contact-rate">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="avg-illness-duration">
-      <value value="15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="half-degree">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="population">
-      <value value="200"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="exposed-inf-rate">
+    <enumeratedValueSet variable="rewire-prob-city-1">
+      <value value="0"/>
       <value value="0.05"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="run-de">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="run-abm">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="generate-network">
-      <value value="&quot;nw:generate-watts-strogatz turtles links population half-degree 0.05 [ fd max-pxcor - 1 ]&quot;"/>
-    </enumeratedValueSet>
+    <steppedValueSet variable="rewire-prob-city-2" first="0" step="0.05" last="1"/>
   </experiment>
 </experiments>
 @#$#@#$#@
