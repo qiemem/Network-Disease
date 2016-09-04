@@ -153,7 +153,7 @@ rewire-prob-city-2
 rewire-prob-city-2
 0
 1
-0.0
+1.0
 0.01
 1
 NIL
@@ -168,7 +168,7 @@ rewire-prob-city-1
 rewire-prob-city-1
 0
 1
-0.0
+0.05
 0.01
 1
 NIL
@@ -525,7 +525,7 @@ need-to-manually-make-preview-for-this-model
   <experiment name="experiment" repetitions="1000" runMetricsEveryStep="true">
     <setup>setup</setup>
     <go>go</go>
-    <exitCondition>reduce and [not (any? exposed or any? infected) ls:of ls:models</exitCondition>
+    <exitCondition>reduce and [not (any? exposed or any? infected)] ls:of ls:models</exitCondition>
     <metric>[[count infected] ls:of model] of turtle 0</metric>
     <metric>[[count infected] ls:of model] of turtle 1</metric>
     <enumeratedValueSet variable="intercity-contact-scalar">
@@ -535,7 +535,11 @@ need-to-manually-make-preview-for-this-model
       <value value="0"/>
       <value value="0.05"/>
     </enumeratedValueSet>
-    <steppedValueSet variable="rewire-prob-city-2" first="0" step="0.05" last="1"/>
+    <enumeratedValueSet variable="rewire-prob-city-2">
+      <value value="0"/>
+      <value value="0.05"/>
+      <value value="1"/>
+    </enumeratedValueSet>
   </experiment>
 </experiments>
 @#$#@#$#@
