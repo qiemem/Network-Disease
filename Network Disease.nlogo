@@ -26,14 +26,19 @@ to setup-abm
     set next-state "S"
     update-state
   ]
-  ask n-of initial-infected turtles [
+  ask n-of initial-exposed turtles [
+    set next-state "E"
+    update-state
+  ]
+  ask n-of initial-infected turtles with [ state = "S" ] [
     set next-state "I"
     update-state
   ]
 end
 
 to setup-de
-  set de-susceptible population - initial-infected
+  set de-susceptible population - initial-exposed - initial-infected
+  set de-exposed initial-exposed
   set de-infected initial-infected
 end
 
@@ -130,6 +135,10 @@ end
 to-report removed
   report turtles with [ state = "R" ]
 end
+
+to-report R0
+  report exposed-contact-rate * exposed-inf-rate * avg-incubation + infected-contact-rate * infected-inf-rate * avg-illness-duration
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 750
@@ -189,10 +198,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-15
-225
-81
-258
+5
+270
+71
+303
 NIL
 setup
 NIL
@@ -206,10 +215,10 @@ NIL
 1
 
 BUTTON
-120
-225
-183
-258
+75
+270
+138
+303
 NIL
 go
 T
@@ -224,9 +233,9 @@ NIL
 
 SLIDER
 5
-260
+315
 200
-293
+348
 exposed-contact-rate
 exposed-contact-rate
 0
@@ -239,9 +248,9 @@ HORIZONTAL
 
 SLIDER
 5
-375
+430
 200
-408
+463
 exposed-inf-rate
 exposed-inf-rate
 0
@@ -254,9 +263,9 @@ HORIZONTAL
 
 SLIDER
 5
-420
+475
 200
-453
+508
 avg-incubation
 avg-incubation
 0
@@ -269,9 +278,9 @@ HORIZONTAL
 
 SLIDER
 5
-455
+510
 200
-488
+543
 avg-illness-duration
 avg-illness-duration
 0
@@ -284,9 +293,9 @@ HORIZONTAL
 
 SLIDER
 5
-340
+395
 200
-373
+428
 infected-inf-rate
 infected-inf-rate
 0
@@ -302,11 +311,11 @@ SLIDER
 155
 200
 188
-initial-infected
-initial-infected
+initial-exposed
+initial-exposed
 0
 population
-2.0
+0.0
 1
 1
 NIL
@@ -339,23 +348,23 @@ PENS
 
 SWITCH
 5
-190
+230
 110
-223
+263
 run-abm
 run-abm
-0
+1
 1
 -1000
 
 SWITCH
 110
-190
+230
 200
-223
+263
 run-de
 run-de
-1
+0
 1
 -1000
 
@@ -372,9 +381,9 @@ String (commands)
 
 SLIDER
 5
-295
+350
 200
-328
+383
 infected-contact-rate
 infected-contact-rate
 0
@@ -386,15 +395,41 @@ NIL
 HORIZONTAL
 
 SWITCH
-40
-505
-167
-538
+30
+545
+157
+578
 color-links?
 color-links?
 1
 1
 -1000
+
+SLIDER
+5
+190
+200
+223
+initial-infected
+initial-infected
+0
+population
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+140
+265
+197
+310
+NIL
+R0
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -744,7 +779,7 @@ need-to-manually-make-preview-for-this-model
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="rahmandad" repetitions="1000" runMetricsEveryStep="true">
+  <experiment name="rahmandad-exposed" repetitions="1000" runMetricsEveryStep="true">
     <setup>setup</setup>
     <go>go</go>
     <exitCondition>not (any? exposed or any? infected)</exitCondition>
@@ -752,8 +787,59 @@ need-to-manually-make-preview-for-this-model
     <metric>count exposed</metric>
     <metric>count infected</metric>
     <metric>count removed</metric>
+    <enumeratedValueSet variable="initial-exposed">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="initial-infected">
-      <value value="1"/>
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-inf-rate">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-contact-rate">
+      <value value="1.25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-incubation">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-contact-rate">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-illness-duration">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="half-degree">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="population">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-inf-rate">
+      <value value="0.05"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="run-de">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="run-abm">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="generate-network">
+      <value value="&quot;nw:generate-watts-strogatz turtles links population half-degree 0.05 [ fd max-pxcor - 1 ]&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="rahmandad-de" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="450"/>
+    <metric>de-susceptible</metric>
+    <metric>de-exposed</metric>
+    <metric>de-infected</metric>
+    <metric>de-removed</metric>
+    <enumeratedValueSet variable="initial-exposed">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-infected">
+      <value value="0"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="infected-inf-rate">
       <value value="0.06"/>
@@ -783,7 +869,103 @@ need-to-manually-make-preview-for-this-model
       <value value="true"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="run-abm">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="generate-network">
+      <value value="&quot;nw:generate-watts-strogatz turtles links population half-degree 0.05 [ fd max-pxcor - 1 ]&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="rahmandad-infected" repetitions="1000" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <exitCondition>not (any? exposed or any? infected)</exitCondition>
+    <metric>count susceptible</metric>
+    <metric>count exposed</metric>
+    <metric>count infected</metric>
+    <metric>count removed</metric>
+    <enumeratedValueSet variable="initial-exposed">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-infected">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-inf-rate">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-contact-rate">
+      <value value="1.25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-incubation">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-contact-rate">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-illness-duration">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="half-degree">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="population">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-inf-rate">
+      <value value="0.05"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="run-de">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="run-abm">
       <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="generate-network">
+      <value value="&quot;nw:generate-watts-strogatz turtles links population half-degree 0.05 [ fd max-pxcor - 1 ]&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="rahmandad-de-infected" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="450"/>
+    <metric>de-susceptible</metric>
+    <metric>de-exposed</metric>
+    <metric>de-infected</metric>
+    <metric>de-removed</metric>
+    <enumeratedValueSet variable="initial-exposed">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-infected">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-inf-rate">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-contact-rate">
+      <value value="1.25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-incubation">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-contact-rate">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-illness-duration">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="half-degree">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="population">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-inf-rate">
+      <value value="0.05"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="run-de">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="run-abm">
+      <value value="false"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="generate-network">
       <value value="&quot;nw:generate-watts-strogatz turtles links population half-degree 0.05 [ fd max-pxcor - 1 ]&quot;"/>

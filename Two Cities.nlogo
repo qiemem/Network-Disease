@@ -20,11 +20,31 @@ to setup
     ]
     ls:set-name model (word self)
   ]
+  ls:let ecr ecr-adjusted
+  ls:let icr icr-adjusted
+  ls:let iir infected-inf-rate
+  ls:let eir exposed-inf-rate
+  ls:let avg-inc avg-incubation
+  ls:let avg-ill avg-illness-duration
+  ls:ask ls:models [
+    set population 200
+    set half-degree 5
+    set initial-exposed 0
+    set initial-infected 0
+    set run-abm true
+    set run-de false
+    set exposed-contact-rate ecr
+    set infected-contact-rate icr
+    set infected-inf-rate iir
+    set exposed-inf-rate eir
+    set avg-incubation avg-inc
+    set avg-illness-duration avg-ill
+  ]
   ask turtle 0 [
     ls:let rewire rewire-prob-city-1
     ls:ask model [
       set generate-network (word "nw:generate-watts-strogatz turtles links population half-degree " rewire " [ fd max-pxcor - 1 ]")
-      set initial-infected 2
+      set initial-exposed 2
       setup
     ]
   ]
@@ -32,7 +52,7 @@ to setup
     ls:let rewire rewire-prob-city-2
     ls:ask model [
       set generate-network (word "nw:generate-watts-strogatz turtles links population half-degree " rewire " [ fd max-pxcor - 1 ]")
-      set initial-infected 0
+      set initial-exposed 0
       setup
     ]
   ]
@@ -67,6 +87,22 @@ to-report intercity-exposure-rate
     [ count exposed * exposed-contact-rate * exposed-inf-rate +
       count infected * infected-contact-rate * infected-inf-rate ] ls:of model
 end
+
+to-report R0
+  report intercity-contact-scalar * exposed-contact-rate * exposed-inf-rate * avg-incubation
+       + intercity-contact-scalar * infected-contact-rate * infected-inf-rate * avg-illness-duration
+       + ecr-adjusted * exposed-inf-rate * avg-incubation
+       + icr-adjusted * infected-inf-rate * avg-illness-duration
+end
+
+to-report ecr-adjusted
+  report exposed-contact-rate * ifelse-value reduce-intracity-contact? [ 1 - intercity-contact-scalar ] [ 1 ]
+end
+
+to-report icr-adjusted
+  report infected-contact-rate * ifelse-value reduce-intracity-contact? [ 1 - intercity-contact-scalar ] [ 1 ]
+end
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -97,9 +133,9 @@ ticks
 
 SLIDER
 5
-140
+125
 206
-173
+158
 intercity-contact-scalar
 intercity-contact-scalar
 0
@@ -111,10 +147,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-10
-90
-72
-123
+5
+395
+67
+428
 NIL
 setup
 NIL
@@ -128,10 +164,10 @@ NIL
 1
 
 BUTTON
-80
-90
-143
-123
+75
+395
+138
+428
 NIL
 go
 T
@@ -153,7 +189,7 @@ rewire-prob-city-2
 rewire-prob-city-2
 0
 1
-1.0
+0.0
 0.01
 1
 NIL
@@ -173,6 +209,118 @@ rewire-prob-city-1
 1
 NIL
 HORIZONTAL
+
+SLIDER
+5
+165
+205
+198
+exposed-contact-rate
+exposed-contact-rate
+0
+20
+4.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+200
+205
+233
+infected-contact-rate
+infected-contact-rate
+0
+10
+1.25
+0.25
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+240
+205
+273
+infected-inf-rate
+infected-inf-rate
+0
+1
+0.06
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+275
+205
+308
+exposed-inf-rate
+exposed-inf-rate
+0
+1
+0.05
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+315
+205
+348
+avg-incubation
+avg-incubation
+0
+100
+15.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+350
+205
+383
+avg-illness-duration
+avg-illness-duration
+0
+100
+15.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+145
+390
+202
+435
+NIL
+R0
+3
+1
+11
+
+SWITCH
+5
+90
+205
+123
+reduce-intracity-contact?
+reduce-intracity-contact?
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
