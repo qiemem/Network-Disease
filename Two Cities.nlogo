@@ -8,12 +8,13 @@ turtles-own [
 to setup
   ls:reset
   ca
+
   set-default-shape turtles "circle"
   crt 1 [ setxy 10 0 ]
   crt 1 [ setxy -10 0 ]
   ask turtles [
     create-links-with other turtles
-    ifelse behaviorspace-experiment-name = "" [
+    ifelse interactive? [
       (ls:create-interactive-models 1 "Network Disease.nlogo" [ [id] -> set model id ])
     ] [
       (ls:create-models 1 "Network Disease.nlogo" [ [id] -> set model id ])
@@ -27,7 +28,6 @@ to setup
   ls:let avg-inc avg-incubation
   ls:let avg-ill avg-illness-duration
   ls:ask ls:models [
-    set population 200
     set half-degree 5
     set initial-exposed 0
     set initial-infected 0
@@ -41,17 +41,21 @@ to setup
     set avg-illness-duration avg-ill
   ]
   ask turtle 0 [
-    ls:let rewire rewire-prob-city-1
+    ls:let network focal-city-network
+    ls:let pop focal-city-population
     ls:ask model [
-      set generate-network (word "nw:generate-watts-strogatz turtles links population half-degree " rewire " [ fd max-pxcor - 1 ]")
+      set population pop
+      set generate-network network
       set initial-exposed 2
       setup
     ]
   ]
   ask turtle 1 [
-    ls:let rewire rewire-prob-city-2
+    ls:let network other-city-network
+    ls:let pop other-city-population
     ls:ask model [
-      set generate-network (word "nw:generate-watts-strogatz turtles links population half-degree " rewire " [ fd max-pxcor - 1 ]")
+      set population pop
+      set generate-network network
       set initial-exposed 0
       setup
     ]
@@ -83,31 +87,55 @@ to recolor
 end
 
 to-report intercity-exposure-rate
-  report intercity-contact-scalar *
+  report ratio-intercity-contact *
     [ count exposed * exposed-contact-rate * exposed-inf-rate +
       count infected * infected-contact-rate * infected-inf-rate ] ls:of model
 end
 
 to-report R0
-  report intercity-contact-scalar * exposed-contact-rate * exposed-inf-rate * avg-incubation
-       + intercity-contact-scalar * infected-contact-rate * infected-inf-rate * avg-illness-duration
+  report ratio-intercity-contact * exposed-contact-rate * exposed-inf-rate * avg-incubation
+       + ratio-intercity-contact * infected-contact-rate * infected-inf-rate * avg-illness-duration
        + ecr-adjusted * exposed-inf-rate * avg-incubation
        + icr-adjusted * infected-inf-rate * avg-illness-duration
 end
 
 to-report ecr-adjusted
-  report exposed-contact-rate * ifelse-value reduce-intracity-contact? [ 1 - intercity-contact-scalar ] [ 1 ]
+  report exposed-contact-rate * ifelse-value reduce-intracity-contact? [ 1 - ratio-intercity-contact ] [ 1 ]
 end
 
 to-report icr-adjusted
-  report infected-contact-rate * ifelse-value reduce-intracity-contact? [ 1 - intercity-contact-scalar ] [ 1 ]
+  report infected-contact-rate * ifelse-value reduce-intracity-contact? [ 1 - ratio-intercity-contact ] [ 1 ]
 end
 
+to-report focal-susceptible
+  report [ [ count susceptible ] ls:of model ] of turtle 0
+end
+to-report focal-exposed
+  report [ [ count exposed ] ls:of model ] of turtle 0
+end
+to-report focal-infected
+  report [ [ count infected ] ls:of model ] of turtle 0
+end
+to-report focal-removed
+  report [ [ count removed ] ls:of model ] of turtle 0
+end
+to-report other-susceptible
+  report [ [ count susceptible ] ls:of model ] of turtle 1
+end
+to-report other-exposed
+  report [ [ count exposed ] ls:of model ] of turtle 1
+end
+to-report other-infected
+  report [ [ count infected ] ls:of model ] of turtle 1
+end
+to-report other-removed
+  report [ [ count removed ] ls:of model ] of turtle 1
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
+615
 10
-647
+1052
 448
 -1
 -1
@@ -133,14 +161,14 @@ ticks
 
 SLIDER
 5
-125
+260
 206
-158
-intercity-contact-scalar
-intercity-contact-scalar
+293
+ratio-intercity-contact
+ratio-intercity-contact
 0
 1
-0.1
+0.01
 0.01
 1
 NIL
@@ -148,9 +176,9 @@ HORIZONTAL
 
 BUTTON
 5
-395
+530
 67
-428
+563
 NIL
 setup
 NIL
@@ -165,9 +193,9 @@ NIL
 
 BUTTON
 75
-395
+530
 138
-428
+563
 NIL
 go
 T
@@ -182,39 +210,9 @@ NIL
 
 SLIDER
 5
-45
+300
 205
-78
-rewire-prob-city-2
-rewire-prob-city-2
-0
-1
-0.0
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-10
-205
-43
-rewire-prob-city-1
-rewire-prob-city-1
-0
-1
-0.05
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-165
-205
-198
+333
 exposed-contact-rate
 exposed-contact-rate
 0
@@ -227,9 +225,9 @@ HORIZONTAL
 
 SLIDER
 5
-200
+335
 205
-233
+368
 infected-contact-rate
 infected-contact-rate
 0
@@ -242,9 +240,9 @@ HORIZONTAL
 
 SLIDER
 5
-240
+410
 205
-273
+443
 infected-inf-rate
 infected-inf-rate
 0
@@ -257,9 +255,9 @@ HORIZONTAL
 
 SLIDER
 5
-275
+375
 205
-308
+408
 exposed-inf-rate
 exposed-inf-rate
 0
@@ -272,9 +270,9 @@ HORIZONTAL
 
 SLIDER
 5
-315
+450
 205
-348
+483
 avg-incubation
 avg-incubation
 0
@@ -287,9 +285,9 @@ HORIZONTAL
 
 SLIDER
 5
-350
+485
 205
-383
+518
 avg-illness-duration
 avg-illness-duration
 0
@@ -302,9 +300,9 @@ HORIZONTAL
 
 MONITOR
 145
-390
+525
 202
-435
+570
 NIL
 R0
 3
@@ -313,12 +311,92 @@ R0
 
 SWITCH
 5
-90
+225
 205
-123
+258
 reduce-intracity-contact?
 reduce-intracity-contact?
 0
+1
+-1000
+
+CHOOSER
+5
+50
+205
+95
+focal-city-network
+focal-city-network
+"erdos-renyi" "scale-free" "small-world" "ring"
+3
+
+CHOOSER
+5
+100
+205
+145
+other-city-network
+other-city-network
+"erdos-renyi" "scale-free" "small-world" "ring"
+3
+
+SLIDER
+5
+150
+205
+183
+focal-city-population
+focal-city-population
+0
+1000
+1000.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+185
+205
+218
+other-city-population
+other-city-population
+0
+1000
+1000.0
+1
+1
+NIL
+HORIZONTAL
+
+PLOT
+210
+10
+605
+440
+plot 1
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -2674135 true "" "plot focal-infected"
+"pen-1" 1.0 0 -13345367 true "" "plot other-infected"
+
+SWITCH
+5
+10
+205
+43
+interactive?
+interactive?
+1
 1
 -1000
 
@@ -687,6 +765,272 @@ need-to-manually-make-preview-for-this-model
       <value value="0"/>
       <value value="0.05"/>
       <value value="1"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="slow-disease" repetitions="1000" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <exitCondition>reduce and [not (any? exposed or any? infected)] ls:of ls:models</exitCondition>
+    <metric>[[count infected] ls:of model] of turtle 0</metric>
+    <metric>[[count infected] ls:of model] of turtle 1</metric>
+    <metric>[[count exposed] ls:of model] of turtle 0</metric>
+    <metric>[[count exposed] ls:of model] of turtle 1</metric>
+    <metric>[[count susceptible] ls:of model] of turtle 0</metric>
+    <metric>[[count susceptible] ls:of model] of turtle 1</metric>
+    <metric>[[count removed] ls:of model] of turtle 0</metric>
+    <metric>[[count removed] ls:of model] of turtle 1</metric>
+    <enumeratedValueSet variable="infected-inf-rate">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="rewire-prob-city-1">
+      <value value="0"/>
+      <value value="0.05"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-contact-rate">
+      <value value="1.25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-incubation">
+      <value value="45"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intercity-contact-scalar">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-contact-rate">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="rewire-prob-city-2">
+      <value value="0"/>
+      <value value="0.05"/>
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="reduce-intracity-contact?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-illness-duration">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-inf-rate">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="rahmandad-4x4" repetitions="1000" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <exitCondition>focal-exposed = 0 and
+focal-infected = 0 and
+other-exposed = 0 and
+other-infected = 0</exitCondition>
+    <metric>focal-susceptible</metric>
+    <metric>focal-exposed</metric>
+    <metric>focal-infected</metric>
+    <metric>focal-removed</metric>
+    <metric>other-susceptible</metric>
+    <metric>other-exposed</metric>
+    <metric>other-infected</metric>
+    <metric>other-removed</metric>
+    <enumeratedValueSet variable="infected-inf-rate">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="focal-city-network">
+      <value value="&quot;erdos-renyi&quot;"/>
+      <value value="&quot;scale-free&quot;"/>
+      <value value="&quot;small-world&quot;"/>
+      <value value="&quot;ring&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-contact-rate">
+      <value value="1.25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-incubation">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-contact-rate">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="reduce-intracity-contact?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="other-city-network">
+      <value value="&quot;erdos-renyi&quot;"/>
+      <value value="&quot;scale-free&quot;"/>
+      <value value="&quot;small-world&quot;"/>
+      <value value="&quot;ring&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-illness-duration">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-inf-rate">
+      <value value="0.05"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ratio-intercity-contact">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="rahmandad-4x4-.01" repetitions="1000" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <exitCondition>focal-exposed = 0 and
+focal-infected = 0 and
+other-exposed = 0 and
+other-infected = 0</exitCondition>
+    <metric>focal-susceptible</metric>
+    <metric>focal-exposed</metric>
+    <metric>focal-infected</metric>
+    <metric>focal-removed</metric>
+    <metric>other-susceptible</metric>
+    <metric>other-exposed</metric>
+    <metric>other-infected</metric>
+    <metric>other-removed</metric>
+    <enumeratedValueSet variable="infected-inf-rate">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="focal-city-network">
+      <value value="&quot;erdos-renyi&quot;"/>
+      <value value="&quot;scale-free&quot;"/>
+      <value value="&quot;small-world&quot;"/>
+      <value value="&quot;ring&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-contact-rate">
+      <value value="1.25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-incubation">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-contact-rate">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="reduce-intracity-contact?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="other-city-network">
+      <value value="&quot;erdos-renyi&quot;"/>
+      <value value="&quot;scale-free&quot;"/>
+      <value value="&quot;small-world&quot;"/>
+      <value value="&quot;ring&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-illness-duration">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-inf-rate">
+      <value value="0.05"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ratio-intercity-contact">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="rahmandad-4x4-.01-large-cities" repetitions="1000" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <exitCondition>focal-exposed = 0 and
+focal-infected = 0 and
+other-exposed = 0 and
+other-infected = 0</exitCondition>
+    <metric>focal-susceptible</metric>
+    <metric>focal-exposed</metric>
+    <metric>focal-infected</metric>
+    <metric>focal-removed</metric>
+    <metric>other-susceptible</metric>
+    <metric>other-exposed</metric>
+    <metric>other-infected</metric>
+    <metric>other-removed</metric>
+    <enumeratedValueSet variable="focal-city-population">
+      <value value="1000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="other-city-population">
+      <value value="1000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-inf-rate">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="focal-city-network">
+      <value value="&quot;erdos-renyi&quot;"/>
+      <value value="&quot;scale-free&quot;"/>
+      <value value="&quot;small-world&quot;"/>
+      <value value="&quot;ring&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-contact-rate">
+      <value value="1.25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-incubation">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-contact-rate">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="reduce-intracity-contact?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="other-city-network">
+      <value value="&quot;erdos-renyi&quot;"/>
+      <value value="&quot;scale-free&quot;"/>
+      <value value="&quot;small-world&quot;"/>
+      <value value="&quot;ring&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-illness-duration">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-inf-rate">
+      <value value="0.05"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ratio-intercity-contact">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="rahmandad-4x4-.01-large-cities-100-reps" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <exitCondition>focal-exposed = 0 and
+focal-infected = 0 and
+other-exposed = 0 and
+other-infected = 0</exitCondition>
+    <metric>focal-susceptible</metric>
+    <metric>focal-exposed</metric>
+    <metric>focal-infected</metric>
+    <metric>focal-removed</metric>
+    <metric>other-susceptible</metric>
+    <metric>other-exposed</metric>
+    <metric>other-infected</metric>
+    <metric>other-removed</metric>
+    <enumeratedValueSet variable="focal-city-population">
+      <value value="1000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="other-city-population">
+      <value value="1000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-inf-rate">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="focal-city-network">
+      <value value="&quot;erdos-renyi&quot;"/>
+      <value value="&quot;scale-free&quot;"/>
+      <value value="&quot;small-world&quot;"/>
+      <value value="&quot;ring&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="infected-contact-rate">
+      <value value="1.25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-incubation">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-contact-rate">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="reduce-intracity-contact?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="other-city-network">
+      <value value="&quot;erdos-renyi&quot;"/>
+      <value value="&quot;scale-free&quot;"/>
+      <value value="&quot;small-world&quot;"/>
+      <value value="&quot;ring&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="avg-illness-duration">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="exposed-inf-rate">
+      <value value="0.05"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ratio-intercity-contact">
+      <value value="0.01"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
