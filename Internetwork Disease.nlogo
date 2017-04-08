@@ -1,4 +1,4 @@
-extensions [ ls ]
+extensions [ ls nw ]
 
 turtles-own [
   model
@@ -10,10 +10,9 @@ to setup
   ca
 
   set-default-shape turtles "circle"
-  crt 1 [ setxy 10 0 ]
-  crt 1 [ setxy -10 0 ]
+  run intercity-network
+
   ask turtles [
-    create-links-with other turtles
     ifelse interactive? [
       (ls:create-interactive-models 1 "Network Disease.nlogo" [ [id] -> set model id ])
     ] [
@@ -41,31 +40,40 @@ to setup
     set avg-illness-duration avg-ill
   ]
   ask turtle 0 [
-    ls:let network focal-city-network
-    ls:let pop focal-city-population
+    ls:let network origin-city-network
+    ls:let pop city-population
     ls:ask model [
       set population pop
       set generate-network network
       set initial-exposed 2
       setup
     ]
-  ]
-  ask turtle 1 [
-    ls:let network other-city-network
-    ls:let pop other-city-population
-    ls:ask model [
-      set population pop
-      set generate-network network
-      set initial-exposed 0
-      setup
+    ask other turtles [
+      ls:let other-network other-cities-network
+      ls:ask model [
+        set population pop
+        set generate-network other-network
+        set initial-exposed 0
+        setup
+      ]
     ]
   ]
+  ask turtles [ recolor ]
   reset-ticks
 end
 
 to go
+  ask links [ set color grey set thickness 0 ]
   ask turtles [
-    set new-exposed random-poisson [ intercity-exposure-rate ] of one-of other turtles
+    repeat random-poisson intercity-exposure-rate [
+      ask one-of link-neighbors [
+        set new-exposed new-exposed + 1
+        ask link-with myself [
+          set color yellow
+          set thickness thickness + 0.1
+        ]
+      ]
+    ]
   ]
   ask turtles [
     ls:let ne new-exposed
@@ -76,14 +84,21 @@ to go
         ]
       ]
     ]
-    recolor
   ]
   ls:ask ls:models [ go ]
+  ask turtles [
+    recolor
+  ]
   tick
 end
 
 to recolor
-  set color blue
+  let inf infected / city-population
+  let sus susceptible / city-population
+  let r 64 + 191 * inf
+  let g 64
+  let b 64 + 191 * sus
+  set color (list r g b)
 end
 
 to-report intercity-exposure-rate
@@ -107,39 +122,68 @@ to-report icr-adjusted
   report infected-contact-rate * ifelse-value reduce-intracity-contact? [ 1 - ratio-intercity-contact ] [ 1 ]
 end
 
-to-report focal-susceptible
-  report [ [ count susceptible ] ls:of model ] of turtle 0
+to-report susceptible
+  report [ count susceptible ] ls:of model
 end
-to-report focal-exposed
-  report [ [ count exposed ] ls:of model ] of turtle 0
+
+to-report exposed
+  report [ count exposed ] ls:of model
 end
-to-report focal-infected
-  report [ [ count infected ] ls:of model ] of turtle 0
+
+to-report infected
+  report [ count infected ] ls:of model
 end
-to-report focal-removed
-  report [ [ count removed ] ls:of model ] of turtle 0
+
+to-report removed
+  report [ count removed ] ls:of model
 end
-to-report other-susceptible
-  report [ [ count susceptible ] ls:of model ] of turtle 1
+
+to complete
+  crt num-cities [ create-links-with other turtles ]
+  layout-circle turtles (max-pxcor - 1)
 end
-to-report other-exposed
-  report [ [ count exposed ] ls:of model ] of turtle 1
+
+to erdos-renyi
+  crt num-cities [ setxy random-xcor random-ycor ]
+  while [ count links < half-degree * count turtles ] [
+    ask one-of turtles [
+      create-link-with one-of other turtles
+    ]
+  ]
 end
-to-report other-infected
-  report [ [ count infected ] ls:of model ] of turtle 1
+
+to scale-free
+  crt 2 * half-degree + 1 [
+    create-links-with other turtles
+    fd 2
+  ]
+  repeat (num-cities - (2 * half-degree + 1)) [
+    crt 1 [
+      while [ count my-links < half-degree ] [
+        create-link-with one-of other [ both-ends ] of one-of links
+      ]
+      move-to one-of link-neighbors
+      fd 2
+    ]
+  ]
 end
-to-report other-removed
-  report [ [ count removed ] ls:of model ] of turtle 1
+
+to small-world
+  nw:generate-watts-strogatz turtles links num-cities half-degree 0.05 [ fd max-pxcor - 1 ]
+end
+
+to ring
+  nw:generate-watts-strogatz turtles links num-cities half-degree 0 [ fd max-pxcor - 1 ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-615
+610
 10
-1052
-448
+1118
+519
 -1
 -1
-13.0
+15.152
 1
 10
 1
@@ -161,9 +205,9 @@ ticks
 
 SLIDER
 5
-260
+335
 206
-293
+368
 ratio-intercity-contact
 ratio-intercity-contact
 0
@@ -175,10 +219,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-5
-530
-67
-563
+220
+30
+282
+63
 NIL
 setup
 NIL
@@ -192,10 +236,10 @@ NIL
 1
 
 BUTTON
-75
-530
-138
-563
+290
+30
+353
+63
 NIL
 go
 T
@@ -210,9 +254,9 @@ NIL
 
 SLIDER
 5
-300
+375
 205
-333
+408
 exposed-contact-rate
 exposed-contact-rate
 0
@@ -225,9 +269,9 @@ HORIZONTAL
 
 SLIDER
 5
-335
+410
 205
-368
+443
 infected-contact-rate
 infected-contact-rate
 0
@@ -240,9 +284,9 @@ HORIZONTAL
 
 SLIDER
 5
-410
+485
 205
-443
+518
 infected-inf-rate
 infected-inf-rate
 0
@@ -255,9 +299,9 @@ HORIZONTAL
 
 SLIDER
 5
-375
+450
 205
-408
+483
 exposed-inf-rate
 exposed-inf-rate
 0
@@ -269,10 +313,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-450
-205
-483
+255
+95
+455
+128
 avg-incubation
 avg-incubation
 0
@@ -284,10 +328,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-485
-205
-518
+255
+130
+455
+163
 avg-illness-duration
 avg-illness-duration
 0
@@ -299,10 +343,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-145
-525
-202
-570
+360
+25
+417
+70
 NIL
 R0
 3
@@ -311,9 +355,9 @@ R0
 
 SWITCH
 5
-225
+300
 205
-258
+333
 reduce-intracity-contact?
 reduce-intracity-contact?
 0
@@ -322,60 +366,30 @@ reduce-intracity-contact?
 
 CHOOSER
 5
-50
-205
 95
-focal-city-network
-focal-city-network
+205
+140
+origin-city-network
+origin-city-network
 "erdos-renyi" "scale-free" "small-world" "ring"
-3
+2
 
 CHOOSER
 5
-100
-205
 145
-other-city-network
-other-city-network
+205
+190
+other-cities-network
+other-cities-network
 "erdos-renyi" "scale-free" "small-world" "ring"
-3
-
-SLIDER
-5
-150
-205
-183
-focal-city-population
-focal-city-population
-0
-1000
-1000.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-185
-205
-218
-other-city-population
-other-city-population
-0
-1000
-1000.0
-1
-1
-NIL
-HORIZONTAL
+2
 
 PLOT
 210
-10
+90
 605
-440
-plot 1
+520
+Totals
 NIL
 NIL
 0.0
@@ -383,11 +397,11 @@ NIL
 0.0
 10.0
 true
-false
+true
 "" ""
 PENS
-"default" 1.0 0 -2674135 true "" "plot focal-infected"
-"pen-1" 1.0 0 -13345367 true "" "plot other-infected"
+"infected" 1.0 0 -2674135 true "" "plot sum [ infected ] of turtles"
+"susceptible" 1.0 0 -13345367 true "" "plot sum [ susceptible ] of turtles"
 
 SWITCH
 5
@@ -399,6 +413,95 @@ interactive?
 1
 1
 -1000
+
+SLIDER
+5
+265
+205
+298
+city-population
+city-population
+1
+1000
+200.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+195
+205
+228
+num-cities
+num-cities
+1
+100
+25.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+230
+205
+263
+half-degree
+half-degree
+0
+num-cities / 2 + 1
+3.0
+1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+5
+45
+205
+90
+intercity-network
+intercity-network
+"complete" "erdos-renyi" "scale-free" "small-world" "ring"
+3
+
+BUTTON
+420
+30
+522
+63
+inspect-city
+if mouse-down? [\nask min-one-of turtles [ distancexy mouse-xcor mouse-ycor ] [\n  ls:show model\n  watch-me\n]\n]
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+525
+30
+602
+63
+hide-all
+ls:hide ls:models\nreset-perspective
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -742,7 +845,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0-BETA1
+NetLogo 6.0.1
 @#$#@#$#@
 need-to-manually-make-preview-for-this-model
 @#$#@#$#@

@@ -5,11 +5,14 @@ globals [
   de-exposed
   de-infected
   de-removed
+
+  normalizer
 ]
 
 turtles-own [
   state
   next-state
+  activeness
 ]
 
 to setup
@@ -34,6 +37,13 @@ to setup-abm
     set next-state "I"
     update-state
   ]
+
+  ask turtles [
+    set activeness 1 - heterogeneity + random-float (2 * heterogeneity)
+  ]
+  set normalizer count turtles / sum [
+    sum [ activity ] of link-neighbors * activity
+  ] of turtles
 end
 
 to setup-de
@@ -89,18 +99,26 @@ to go-de
 end
 
 to try-infect [ cont-rate inf-rate ]
-  repeat random-poisson cont-rate [
-    if random-float 1.0 < inf-rate [
-      ask turtle-set one-of link-neighbors [
-        if state = "S" [
-          set next-state "E"
-          if color-links? [
-            ask link-with myself [ set color [ color ] of other-end ]
-          ]
-        ]
+  ask link-neighbors with [ state = "S" ] [
+    let p-miss (1 - inf-rate) ^ random-poisson [ contact-rate myself cont-rate ] of myself
+    if random-float 1 < 1 - p-miss [
+      set next-state "E"
+      if color-links? [
+        ask link-with myself [ set color [ color ] of other-end ]
       ]
     ]
   ]
+end
+
+to-report activity
+  report activeness / (count my-links ^ contact-duration)
+end
+
+to-report contact-rate [ other-turtle base-rate ]
+  if [ state != "S" ] of other-turtle [
+    report 0
+  ]
+  report base-rate * normalizer * activity * [ activity ] of other-turtle
 end
 
 to update-state
@@ -147,6 +165,7 @@ to erdos-renyi
       create-link-with one-of other turtles
     ]
   ]
+  layout-circle turtles (max-pxcor - 1)
 end
 
 to scale-free
@@ -163,6 +182,7 @@ to scale-free
       fd 2
     ]
   ]
+  layout-circle (reverse sort-on [ count my-links ] turtles) (max-pxcor - 1)
 end
 
 to small-world
@@ -216,7 +236,7 @@ population
 population
 0
 1000
-1000.0
+200.0
 1
 1
 NIL
@@ -239,9 +259,9 @@ HORIZONTAL
 
 BUTTON
 5
-245
+325
 71
-278
+358
 NIL
 setup
 NIL
@@ -256,9 +276,9 @@ NIL
 
 BUTTON
 75
-245
+325
 138
-278
+358
 NIL
 go
 T
@@ -273,9 +293,9 @@ NIL
 
 SLIDER
 5
-290
+365
 200
-323
+398
 exposed-contact-rate
 exposed-contact-rate
 0
@@ -288,9 +308,9 @@ HORIZONTAL
 
 SLIDER
 5
-370
+445
 200
-403
+478
 exposed-inf-rate
 exposed-inf-rate
 0
@@ -303,9 +323,9 @@ HORIZONTAL
 
 SLIDER
 5
-450
+525
 200
-483
+558
 avg-incubation
 avg-incubation
 0
@@ -318,9 +338,9 @@ HORIZONTAL
 
 SLIDER
 5
-485
+560
 200
-518
+593
 avg-illness-duration
 avg-illness-duration
 0
@@ -333,9 +353,9 @@ HORIZONTAL
 
 SLIDER
 5
-405
+480
 200
-438
+513
 infected-inf-rate
 infected-inf-rate
 0
@@ -374,7 +394,7 @@ NIL
 0.0
 10.0
 true
-true
+false
 "" ""
 PENS
 "susceptible" 1.0 0 -13345367 true "" "plot count turtles with [ state = \"S\" ]"
@@ -404,15 +424,15 @@ SWITCH
 238
 run-de
 run-de
-1
+0
 1
 -1000
 
 SLIDER
 5
-325
+400
 200
-358
+433
 infected-contact-rate
 infected-contact-rate
 0
@@ -425,9 +445,9 @@ HORIZONTAL
 
 SWITCH
 30
-520
+595
 157
-553
+628
 color-links?
 color-links?
 1
@@ -451,9 +471,9 @@ HORIZONTAL
 
 MONITOR
 140
-240
+320
 197
-285
+365
 NIL
 R0
 17
@@ -469,6 +489,36 @@ generate-network
 generate-network
 "complete" "erdos-renyi" "scale-free" "small-world" "ring"
 0
+
+SLIDER
+5
+280
+200
+313
+contact-duration
+contact-duration
+0
+1
+1.0
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+245
+200
+278
+heterogeneity
+heterogeneity
+0
+1
+0.0
+0.25
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
